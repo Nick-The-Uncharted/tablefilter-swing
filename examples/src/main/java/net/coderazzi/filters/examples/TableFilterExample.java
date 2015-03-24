@@ -121,6 +121,7 @@ public class TableFilterExample extends JFrame implements ActionHandler {
         getContentPane().add(tablePanel);
         setJMenuBar(createMenu(tablePanel, modelRows));
         filterHeader.setTable(table);
+//        filterHeader.setInstantFiltering(false);
     }
 
     private JPanel createGui(int modelRows) {

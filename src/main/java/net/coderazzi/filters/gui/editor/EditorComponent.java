@@ -33,10 +33,8 @@ import java.awt.Graphics;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-
 import java.text.Format;
 import java.text.ParseException;
-
 import java.util.Comparator;
 import java.util.regex.Pattern;
 
@@ -55,6 +53,7 @@ import net.coderazzi.filters.IParser;
 import net.coderazzi.filters.IParser.InstantFilter;
 import net.coderazzi.filters.gui.CustomChoice;
 import net.coderazzi.filters.gui.Look;
+import net.coderazzi.filters.parser.FilterExpression.ExpressionException;
 
 
 /**
@@ -612,6 +611,11 @@ class EditorComponent extends JTextField {
                 }
             } catch (ParseException pex) {
                 filter = null;
+                content = text;
+                error = true;
+                match = null;
+            }catch(ExpressionException eex){
+            	filter = null;
                 content = text;
                 error = true;
                 match = null;
