@@ -27,7 +27,7 @@ package net.coderazzi.filters.parser;
 
 import java.text.Format;
 import java.text.ParseException;
-
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
@@ -36,6 +36,7 @@ import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
 import javax.swing.RowFilter;
+import javax.swing.table.TableModel;
 
 import net.coderazzi.filters.IParser;
 
@@ -90,7 +91,7 @@ public class Parser implements IParser {
     private static WildcardOperand instantOperand;
     private static Pattern expressionMatcher;
     private static StringBuilder escapeBuffer = new StringBuilder();
-
+    private static Pattern rangePattern;
     public Parser(Format             format,
                   Comparator         classComparator,
                   Comparator<String> stringComparator,
@@ -106,6 +107,53 @@ public class Parser implements IParser {
     /** {@link IParser} interface. */
     @Override public RowFilter parseText(String expression)
                                   throws ParseException {
+    	FilterExpression e = new FilterExpression(expression);
+    	e.addOperator(e.new Operator("&&",4) {
+			
+			@Override
+			public RowFilter<TableModel, Integer> eval(Object v1, Object v2) throws ParseException {
+				ArrayList<RowFilter<TableModel, Integer>> filterList = new ArrayList<RowFilter<TableModel, Integer>>();
+				v1 = v1 instanceof String ? parseSubtext((String)v1) : v1;
+				v2 = v2 instanceof String ? parseSubtext((String)v2) : v2;
+				filterList.add((RowFilter<TableModel, Integer>)v1);
+				filterList.add((RowFilter<TableModel, Integer>)v2);
+				return RowFilter.andFilter(filterList);
+			}
+		});
+    	
+    	e.addOperator(e.new Operator("||",4) {
+			
+			@Override
+			public RowFilter<TableModel, Integer> eval(Object v1, Object v2) throws ParseException {
+				ArrayList<RowFilter<TableModel, Integer>> filterList = new ArrayList<RowFilter<TableModel, Integer>>();
+				v1 = v1 instanceof String ? parseSubtext((String)v1) : v1;
+				v2 = v2 instanceof String ? parseSubtext((String)v2) : v2;
+				filterList.add((RowFilter<TableModel, Integer>)v1);
+				filterList.add((RowFilter<TableModel, Integer>)v2);
+				return RowFilter.orFilter(filterList);
+			}
+		});
+    	
+    	e.setParser(e.new Parser() {
+			
+			@Override
+			public RowFilter<TableModel, Integer> eval(String v) throws ParseException {
+				return parseSubtext(v);
+			}
+		});
+    	return e.eval();
+    }
+    
+    public RowFilter parseSubtext(String expression)
+                                  throws ParseException {
+    	Matcher rangeMatcher = rangePattern.matcher(expression);
+    	if(rangeMatcher.matches()){
+    		try{
+    			return new RangeFilter(Double.parseDouble(rangeMatcher.group(1)), Double.parseDouble(rangeMatcher.group(2)), modelIndex);
+    		}catch(NumberFormatException nfe){
+    			throw new ParseException("operand missing", Math.max(expression.indexOf(rangeMatcher.group(1)), expression.indexOf(rangeMatcher.group(2))));
+    		}
+    	}
         Matcher matcher = expressionMatcher.matcher(expression);
         if (matcher.matches()) {
             // all expressions match!
@@ -209,7 +257,7 @@ public class Parser implements IParser {
 
             throw new ParseException("", 0);
         }
-
+        
         /** Operator fine for given type, apply it. */
         private RowFilter createOperator(final Object     right,
                                          final int        modelIndex,
@@ -225,7 +273,8 @@ public class Parser implements IParser {
                 }
             };
         }
-
+        
+        
         /** Operator invalid for given type, filter by string representation. */
         private RowFilter createStringOperator(
                 final String        right,
@@ -496,7 +545,7 @@ public class Parser implements IParser {
     static {
         expressionMatcher = Pattern.compile(
         		"^\\s*(>=|<=|<>|!~|~~|>|<|=|~|!)?(\\s*(.*))$", Pattern.DOTALL);
-
+        rangePattern = Pattern.compile("^\\s*(.*)to\\s*(.*)$", Pattern.DOTALL);
         operands = new HashMap<String, IOperand>();
         operands.put("~~", new REOperand(true));
         operands.put("!~", new WildcardOperand(false));
