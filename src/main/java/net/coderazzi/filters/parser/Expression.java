@@ -24,18 +24,21 @@
  * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  * 
  */
-package com.udojava.evalex;
+package net.coderazzi.filters.parser;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.EmptyStackException;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Stack;
+
+import com.sun.xml.internal.messaging.saaj.packaging.mime.internet.ParseException;
 
 /**
 * <h1>EvalEx - Java Expression Evaluator</h1>
@@ -203,7 +206,7 @@ public class Expression {
 	/**
 	 * The {@link MathContext} to use for calculations.
 	 */
-	private MathContext mc = MathContext.DECIMAL32;
+	MathContext mc = MathContext.DECIMAL32;
 
 	/**
 	 * The original infix expression.
@@ -218,7 +221,7 @@ public class Expression {
 	/**
 	 * All defined operators with name and implementation.
 	 */
-	private Map<String, Operator> operators = new HashMap<String, Expression.Operator>();
+	Map<String, Operator> operators = new HashMap<String, Expression.Operator>();
 
 	/**
 	 * All defined functions with name and implementation.
@@ -264,7 +267,7 @@ public class Expression {
 		/**
 		 * Number of parameters expected for this function.
 		 */
-		private int numParams;
+		int numParams;
 
 		/**
 		 * Creates a new function with given name and parameter count.
@@ -401,9 +404,8 @@ public class Expression {
 		private char peekNextChar() {
 			if (pos < (input.length() - 1)) {
 				return input.charAt(pos + 1);
-			} else {
-				return 0;
-			}
+			} 				
+			return 0;
 		}
 
 		@Override
@@ -435,10 +437,10 @@ public class Expression {
 					token.append(input.charAt(pos++));
 					ch = pos == input.length() ? 0 : input.charAt(pos);
 				}
-			} else if (ch == '(' || ch == ')' || ch == ',') {
+			} else if (ch == '(' || ch == ')' || ch == ','||ch == '$') {
 				token.append(ch);
 				pos++;
-			} else {
+			}else {
 				while (!Character.isLetter(ch) && !Character.isDigit(ch) && ch != '_'
 						&& !Character.isWhitespace(ch) && ch != '('
 						&& ch != ')' && ch != ',' && (pos < input.length())) {
@@ -602,6 +604,14 @@ public class Expression {
 				return v1.compareTo(v2) != 0 ? BigDecimal.ONE : BigDecimal.ZERO;
 			}
 		});
+		
+		addOperator(new Operator("!", 7, false) {
+			@Override
+			public BigDecimal eval(BigDecimal v1, BigDecimal v2) {
+				return v1.compareTo(v2) != 0 ? BigDecimal.ONE : BigDecimal.ZERO;
+			}
+		});
+		
 		addOperator(new Operator("<>", 7, false) {
 			@Override
 			public BigDecimal eval(BigDecimal v1, BigDecimal v2) {
@@ -894,30 +904,35 @@ public class Expression {
 	 * Evaluates the expression.
 	 * 
 	 * @return The result of the expression.
+	 * @throws ParseException 
 	 */
-	public BigDecimal eval() {
+	public BigDecimal eval() throws ParseException {
 
 		Stack<BigDecimal> stack = new Stack<BigDecimal>();
 
-		for (String token : getRPN()) {
-			if (operators.containsKey(token)) {
-				BigDecimal v1 = stack.pop();
-				BigDecimal v2 = stack.pop();
-				stack.push(operators.get(token).eval(v2, v1));
-			} else if (variables.containsKey(token)) {
-				stack.push(variables.get(token).round(mc));
-			} else if (functions.containsKey(token.toUpperCase())) {
-				Function f = functions.get(token.toUpperCase());
-				ArrayList<BigDecimal> p = new ArrayList<BigDecimal>(
-						f.getNumParams());
-				for (int i = 0; i < f.numParams; i++) {
-					p.add(0,stack.pop());
-				}
-				BigDecimal fResult = f.eval(p);
-				stack.push(fResult);
-			} else {
-				stack.push(new BigDecimal(token, mc));
+		try {
+			for (String token : getRPN()) {
+				if (operators.containsKey(token)) {
+					BigDecimal v1 = stack.pop();
+					BigDecimal v2 = stack.pop();
+					stack.push(operators.get(token).eval(v2, v1));
+				} else if (variables.containsKey(token)) {
+					stack.push(variables.get(token).round(mc));
+				} else if (functions.containsKey(token.toUpperCase())) {
+					Function f = functions.get(token.toUpperCase());
+					ArrayList<BigDecimal> p = new ArrayList<BigDecimal>(
+							f.getNumParams());
+					for (int i = 0; i < f.numParams; i++) {
+						p.add(0,stack.pop());
+					}
+					BigDecimal fResult = f.eval(p);
+					stack.push(fResult);
+				} else {
+					stack.push(new BigDecimal(token, mc));
+				}	
 			}
+		} catch (EmptyStackException e) {
+			throw new ParseException();
 		}
 		return stack.pop().stripTrailingZeros();
 	}
