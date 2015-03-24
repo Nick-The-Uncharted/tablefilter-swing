@@ -138,9 +138,9 @@ public class FilterExpression {
 				ch = input.charAt(++pos);
 			}
 			
-			if (!Character.isWhitespace(ch) && ch != '('
+			if (ch != '('
 					&& ch != ')' && ch != '&' && ch != '|') {
-				while ((!Character.isWhitespace(ch) && ch != '('
+				while ((ch != '('
 						&& ch != ')'  && ch != '&' && ch != '|' &&  (pos < input.length()))) {
 					token.append(input.charAt(pos++));
 					ch = pos == input.length() ? 0 : input.charAt(pos);

@@ -25,6 +25,7 @@
 
 package net.coderazzi.filters.parser;
 
+import java.math.BigDecimal;
 import java.text.Format;
 import java.text.ParseException;
 import java.util.ArrayList;
@@ -92,6 +93,7 @@ public class Parser implements IParser {
     private static Pattern expressionMatcher;
     private static StringBuilder escapeBuffer = new StringBuilder();
     private static Pattern rangePattern;
+    private static Pattern mathPattern;
     public Parser(Format             format,
                   Comparator         classComparator,
                   Comparator<String> stringComparator,
@@ -154,18 +156,23 @@ public class Parser implements IParser {
     			throw new ParseException("operand missing", Math.max(expression.indexOf(rangeMatcher.group(1)), expression.indexOf(rangeMatcher.group(2))));
     		}
     	}
-        Matcher matcher = expressionMatcher.matcher(expression);
+        Matcher matcher = mathPattern.matcher(expression);
         if (matcher.matches()) {
             // all expressions match!
+            IOperand op = new MathOperand();
+            return op.create(this, matcher.group(1).trim());
+        }
+        matcher = expressionMatcher.matcher(expression);
+        if (matcher.matches()) {
+        	 // all expressions match!
             IOperand op = operands.get(matcher.group(1));
             if (op == null) {
                 // note that instant does not apply if there is an operator!
                 op = wildcardOperand;
             }
-
             return op.create(this, matcher.group(3).trim());
         }
-
+        
         throw new ParseException("", 0);
     }
 
@@ -236,6 +243,33 @@ public class Parser implements IParser {
     }
 
     /** IOperand for comparison operations. */
+    static class MathOperand implements IOperand {
+
+        /** {@link IOperand} interface. */
+        @Override public RowFilter create(final Parser self, final String right)
+                                   throws ParseException {
+        	
+        	return new RowFilter() {
+                @Override public boolean include(Entry entry){
+                    Object left = entry.getValue(self.modelIndex);
+                    if(left == null){
+                    	return false;
+                    }
+                    BigDecimal b = left instanceof Integer ? new BigDecimal((Integer)left):new BigDecimal((Double)left);
+                    Expression e = new Expression(right).with("$", b);
+                    try {
+						return e.eval().equals(BigDecimal.ONE);
+					} catch (com.sun.xml.internal.messaging.saaj.packaging.mime.internet.ParseException e1) {
+						System.out.println("operand missing");
+					}
+                    return false;
+                }
+            };
+        }
+    }
+
+
+    /** IOperand for comparison operations. */
     abstract static class ComparisonOperand implements IOperand {
         abstract boolean matches(int comparison);
 
@@ -257,7 +291,7 @@ public class Parser implements IParser {
 
             throw new ParseException("", 0);
         }
-        
+
         /** Operator fine for given type, apply it. */
         private RowFilter createOperator(final Object     right,
                                          final int        modelIndex,
@@ -273,8 +307,7 @@ public class Parser implements IParser {
                 }
             };
         }
-        
-        
+
         /** Operator invalid for given type, filter by string representation. */
         private RowFilter createStringOperator(
                 final String        right,
@@ -398,7 +431,6 @@ public class Parser implements IParser {
             final Pattern pattern = getPattern(right, self.ignoreCase);
             final int modelIndex = self.modelIndex;
             final FormatWrapper format = self.format;
-
             return new RowFilter() {
 
                 @Override public boolean include(Entry entry) {
@@ -546,6 +578,7 @@ public class Parser implements IParser {
         expressionMatcher = Pattern.compile(
         		"^\\s*(>=|<=|<>|!~|~~|>|<|=|~|!)?(\\s*(.*))$", Pattern.DOTALL);
         rangePattern = Pattern.compile("^\\s*(.*)to\\s*(.*)$", Pattern.DOTALL);
+        mathPattern = Pattern.compile("^\\s*(.+(>=|<=|<>|>|<|=|!)\\s*.*)$", Pattern.DOTALL);
         operands = new HashMap<String, IOperand>();
         operands.put("~~", new REOperand(true));
         operands.put("!~", new WildcardOperand(false));
