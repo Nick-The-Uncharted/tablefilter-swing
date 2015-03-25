@@ -113,13 +113,29 @@ public class FilterExpression {
 		private String input;
 
 		/**
-		 * Creates a new tokenizer for an expression.
-		 * 
-		 * @param input
-		 *            The expression string.
+		 * the count of unpaired left parenthese since encounter ~~
 		 */
+		private int leftParen = 0;
+		
+		/**
+		 * Should care about leftParen or not
+		 */
+		private boolean countLeftParen = false;
+		
 		public Tokenizer(String input) {
 			this.input = input.trim();
+		}
+		
+		/**
+		 * Peek at the next character, without advancing the iterator.
+		 * 
+		 * @return The next character or character 0, if at end of string.
+		 */
+		private char peekNextChar() {
+			if (pos < (input.length() - 1)) {
+				return input.charAt(pos + 1);
+			} 
+				return 0;
 		}
 
 		@Override
@@ -138,17 +154,40 @@ public class FilterExpression {
 				ch = input.charAt(++pos);
 			}
 			
-			if (ch != '('
-					&& ch != ')' && ch != '&' && ch != '|') {
-				while ((ch != '('
-						&& ch != ')'  && ch != '&' && ch != '|' &&  (pos < input.length()))) {
+			if (countLeftParen ||(ch != '('
+					&& ch != ')' && ch != '&' && ch != '|' && ch != '~')) {
+				while ((countLeftParen ||(ch != '('
+						&& ch != ')'  && ch != '&' && ch != '|' ))&&  (pos < input.length())) {
 					token.append(input.charAt(pos++));
+					if(ch == '('){
+						leftParen++;
+					}else if(peekNextChar() == ')'){
+						countLeftParen = countLeftParen&&(--leftParen != 0);
+					}
 					ch = pos == input.length() ? 0 : input.charAt(pos);
 				}
 			} else if (ch == '(' || ch == ')') {
 				token.append(ch);
+				if(countLeftParen){
+					if(ch == '('){
+						leftParen++;
+					}else{
+						countLeftParen = (--leftParen != 0);
+					}
+				}
 				pos++;
-			} else {
+			} else if (ch == '~'){
+				token.append(input.charAt(pos));
+				if(peekNextChar() == '~'){
+					token.append(input.charAt(pos++));
+					countLeftParen = true;
+					leftParen = 1; // assuming regex is enclosed by parentheses
+					pos+=1;
+				}else{
+					pos+=1;
+				}
+				token.append(next());
+			}else {
 				String str = "!~><=~!";
 				// extract operator
 				while (!Character.isLetter(ch) && !Character.isDigit(ch) && ch != '_'

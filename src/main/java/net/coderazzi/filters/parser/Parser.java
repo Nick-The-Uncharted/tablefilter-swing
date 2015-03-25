@@ -259,7 +259,7 @@ public class Parser implements IParser {
                     Expression e = new Expression(right).with("$", b);
                     try {
 						return e.eval().equals(BigDecimal.ONE);
-					} catch (com.sun.xml.internal.messaging.saaj.packaging.mime.internet.ParseException e1) {
+					} catch (ParseException e1) {
 						System.out.println("operand missing");
 					}
                     return false;

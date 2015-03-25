@@ -30,6 +30,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
+import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.EmptyStackException;
 import java.util.HashMap;
@@ -38,7 +39,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Stack;
 
-import com.sun.xml.internal.messaging.saaj.packaging.mime.internet.ParseException;
 
 /**
 * <h1>EvalEx - Java Expression Evaluator</h1>
@@ -932,7 +932,7 @@ public class Expression {
 				}	
 			}
 		} catch (EmptyStackException e) {
-			throw new ParseException();
+			throw new ParseException("", 0);
 		}
 		return stack.pop().stripTrailingZeros();
 	}
